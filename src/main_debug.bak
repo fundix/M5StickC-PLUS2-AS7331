@@ -1,0 +1,34 @@
+/**
+ * @Hardwares: M5StickCPlus2
+ * @Platform Version: Arduino M5Stack Board Manager v2.0.9
+ * @Dependent Library:
+ * M5GFX: https://github.com/m5stack/M5GFX
+ * M5Unified: https://github.com/m5stack/M5Unified
+ * M5StickCPlus2: https://github.com/m5stack/M5StickCPlus2
+ */
+
+#include <Arduino.h>
+#include "M5StickCPlus2.h"
+
+void setup()
+{   
+    auto cfg = M5.config();
+    StickCP2.begin(cfg);
+    delay(2000);
+}
+
+void loop()
+{
+
+    int a = StickCP2.Power.getBatteryVoltage();
+    StickCP2.update(); // Update button states
+    bool b = StickCP2.BtnA.wasClicked();
+
+    if (b)
+    {
+        delay(100);
+    }
+
+
+    delay(100);
+}
