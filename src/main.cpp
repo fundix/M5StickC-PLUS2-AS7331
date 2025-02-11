@@ -18,6 +18,11 @@ float maxuva = 0;
 float maxuvb = 0;
 float maxuvc = 0;
 
+#define BUTTON_A GPIO_NUM_37
+#define BUTTON_B GPIO_NUM_39
+
+void buttonTask(void *pvParameters);
+
 // Function to convert voltage to percentage
 int voltageToPercentage(int voltage)
 {
@@ -54,7 +59,7 @@ void setup()
 
     StickCP2.Display.setBrightness(25);
     StickCP2.Display.setRotation(1);
-    StickCP2.Display.setTextColor(RED);
+    StickCP2.Display.setTextColor(RED, BLACK);
     StickCP2.Display.setTextDatum(middle_center);
     StickCP2.Display.setFont(&fonts::FreeSans12pt7b);
     StickCP2.Display.setTextSize(1);
@@ -96,8 +101,60 @@ void setup()
     if (kSTkErrOk != myUVSensor.setStartState(true))
         Serial.println("Error starting reading!");
 
+    xTaskCreate(
+        buttonTask,    // Function that should be called
+        "Button Task", // Name of the task (for debugging)
+        4096,          // Stack size (in words, not bytes)
+        NULL,          // Parameter to pass to the function
+        1,             // Task priority
+        NULL           // Task handle
+    );
+}
+
+void buttonTask(void *pvParameters)
+{
     // Configure GPIO37 for the button
-    pinMode(GPIO_NUM_37, INPUT_PULLUP); // Button is active LOW
+    pinMode(BUTTON_A, INPUT_PULLUP); // Button is active LOW
+    pinMode(BUTTON_B, INPUT_PULLUP); // Button is active LOW
+
+    bool buttonAPressed = false;
+    bool buttonBPressed = false;
+
+    for (;;)
+    {
+        if (digitalRead(BUTTON_A) == LOW && !buttonAPressed) // GPIO37 is active LOW
+        {
+            StickCP2.Speaker.tone(8000, 20);
+            maxuva = 0;
+            maxuvb = 0;
+            maxuvc = 0;
+            buttonAPressed = true;
+        }
+        if (digitalRead(BUTTON_A) == HIGH && buttonAPressed)
+        {
+            buttonAPressed = false;
+        }
+
+        if (digitalRead(BUTTON_B) == LOW && !buttonBPressed) // GPIO39 is active LOW
+        {
+            StickCP2.Speaker.tone(5000, 20);
+
+            static int brightness = 25;
+            brightness += 25;
+            if (brightness > 100)
+            {
+                brightness = 25;
+            }
+            StickCP2.Display.setBrightness(brightness);
+            buttonBPressed = true;
+        }
+        if (digitalRead(BUTTON_B) == HIGH && buttonBPressed)
+        {
+            buttonBPressed = false;
+        }
+
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
 }
 
 void loop()
@@ -117,18 +174,7 @@ void loop()
     //     maxuvb = 0;
     //     maxuvc = 0;
     // }
-    if (digitalRead(GPIO_NUM_37) == LOW) // GPIO37 is active LOW
-    {
-        StickCP2.Speaker.tone(8000, 20);
-        maxuva = 0;
-        maxuvb = 0;
-        maxuvc = 0;
 
-        // StickCP2.Display.clear();
-        // StickCP2.Display.drawString("A Btn Pressed",
-        //                             StickCP2.Display.width() / 2,
-        //                             StickCP2.Display.height() / 2);
-    }
     // if (StickCP2.BtnB.wasReleased())
     // {
     //     StickCP2.Speaker.tone(8000, 20);
@@ -142,7 +188,7 @@ void loop()
     {
         StickCP2.Display.setTextSize(1);
 
-        StickCP2.Display.fillRect(0, 0, 240, 135, BLACK);
+        // StickCP2.Display.fillRect(0, 0, 240, 135, BLACK);
         int percentage = getStableBatteryPercentage();
         StickCP2.Display.setCursor(10, 20);
         StickCP2.Display.printf("Bat: %d%%\n", percentage);
