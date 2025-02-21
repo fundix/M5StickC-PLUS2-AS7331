@@ -11,8 +11,11 @@
 #include <Wire.h>
 #include <SparkFun_AS7331.h>
 #include "M5StickCPlus2.h"
+#include "M5GFX.h"
 
 SfeAS7331ArdI2C myUVSensor;
+
+M5Canvas canvas(&StickCP2.Display);
 
 float maxuva = 0;
 float maxuvb = 0;
@@ -59,10 +62,13 @@ void setup()
 
     StickCP2.Display.setBrightness(25);
     StickCP2.Display.setRotation(1);
-    StickCP2.Display.setTextColor(RED, BLACK);
-    StickCP2.Display.setTextDatum(middle_center);
-    StickCP2.Display.setFont(&fonts::FreeSans12pt7b);
-    StickCP2.Display.setTextSize(1);
+    canvas.setTextColor(WHITE, BLACK);
+    canvas.setTextDatum(middle_center);
+    canvas.setFont(&fonts::FreeSans12pt7b);
+    canvas.setTextSize(3);
+
+    canvas.createSprite(StickCP2.Display.width(), StickCP2.Display.height());
+    canvas.fillScreen(BLACK);
 
     // pinMode(32, INPUT_PULLUP); // Enable internal pull-down resistor for pin 32.
     // pinMode(33, INPUT_PULLDOWN);
@@ -186,32 +192,27 @@ void loop()
 
     if (!displayPaused)
     {
-        StickCP2.Display.setTextSize(1);
-
-        // StickCP2.Display.fillRect(0, 0, 240, 135, BLACK);
+        canvas.fillScreen(BLACK);
+        canvas.setTextSize(0.5);
+        // canvas.fillRect(0, 0, 240, 135, BLACK);
         int percentage = getStableBatteryPercentage();
-        StickCP2.Display.setCursor(10, 20);
-        StickCP2.Display.printf("Bat: %d%%\n", percentage);
-        StickCP2.Display.setCursor(11, 40);
-        StickCP2.Display.setTextSize(0.7);
-        StickCP2.Display.printf("%dmV\n", StickCP2.Power.getBatteryVoltage());
-        StickCP2.Display.setTextSize(1);
+        canvas.setCursor(200, 10);
+        canvas.printf("%d%%\n", percentage);
+        canvas.setCursor(11, 10);
+        canvas.setTextSize(0.5);
+        canvas.printf("%dmV\n", StickCP2.Power.getBatteryVoltage());
+        // canvas.setTextSize(1);
 
         if (kSTkErrOk != myUVSensor.readAll())
             Serial.println("Error reading UV.");
 
-        // Serial.print("UVA:");
-        // Serial.print(myUVSensor.getUVA());
-        // Serial.print(" UVB:");
-        // Serial.print(myUVSensor.getUVB());
-        // Serial.print(" UVC:");
-        // Serial.print(myUVSensor.getUVC());
-        // Serial.print(" temp:");
-        // Serial.println(myUVSensor.getTemp());
-
         float uva = myUVSensor.getUVA();
         float uvb = myUVSensor.getUVB();
         float uvc = myUVSensor.getUVC();
+
+        float spektralni_faktor = 0.15;
+        float uv_index = (uvb * spektralni_faktor) / 25.0;
+        float uvi_total = ((uva + uvb) * spektralni_faktor) / 25.0;
 
         if (uva > maxuva)
             maxuva = uva;
@@ -220,24 +221,30 @@ void loop()
         if (uvc > maxuvc)
             maxuvc = uvc;
 
-        StickCP2.Display.setTextSize(0.7);
-        StickCP2.Display.setCursor(10, 65);
-        StickCP2.Display.printf("UV-A: %.1f\n", uva);
-        StickCP2.Display.setCursor(10, 84);
-        StickCP2.Display.printf("UV-B: %.1f\n", uvb);
-        StickCP2.Display.setCursor(10, 102);
-        StickCP2.Display.printf("UV-C: %.1f\n", uvc);
-        StickCP2.Display.setCursor(10, 118);
-        StickCP2.Display.printf("Temp: %.1f C", myUVSensor.getTemp());
+        canvas.setTextSize(1);
+        canvas.setCursor(10, 35);
+        canvas.printf("UV-I: %.0f\n", uv_index);
 
-        StickCP2.Display.setCursor(140, 45);
-        StickCP2.Display.print("Max:");
-        StickCP2.Display.setCursor(140, 65);
-        StickCP2.Display.printf("%.1f", maxuva);
-        StickCP2.Display.setCursor(140, 84);
-        StickCP2.Display.printf("%.1f", maxuvb);
-        StickCP2.Display.setCursor(140, 102);
-        StickCP2.Display.printf("%.1f", maxuvc);
+        canvas.setTextSize(0.7);
+        canvas.setCursor(10, 65);
+        canvas.printf("UV-A: %.0f\n", uva);
+        canvas.setCursor(10, 84);
+        canvas.printf("UV-B: %.0f\n", uvb);
+        canvas.setCursor(10, 102);
+        canvas.printf("UV-C: %.0f\n", uvc);
+        canvas.setCursor(10, 119);
+        canvas.printf("Temp: %.1f C", myUVSensor.getTemp());
+
+        canvas.setCursor(140, 45);
+        canvas.print("Max:");
+        canvas.setCursor(140, 65);
+        canvas.printf("%.0", maxuva);
+        canvas.setCursor(140, 84);
+        canvas.printf("%.0", maxuvb);
+        canvas.setCursor(140, 102);
+        canvas.printf("%.0", maxuvc);
+
+        canvas.pushSprite(0, 0);
     }
 
     delay(1000);
