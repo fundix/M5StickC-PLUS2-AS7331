@@ -24,6 +24,8 @@ float maxuvc = 0;
 #define BUTTON_A GPIO_NUM_37
 #define BUTTON_B GPIO_NUM_39
 
+#define TAG "UV"
+
 void buttonTask(void *pvParameters);
 
 // Function to convert voltage to percentage
@@ -163,6 +165,77 @@ void buttonTask(void *pvParameters)
     }
 }
 
+float calculateUVIndex(float uva, float uvb, float uvc)
+{
+    float k1 = 0.1;  // Váha pro UVA
+    float k2 = 0.7;  // Váha pro UVB (hlavní složka)
+    float k3 = 0.05; // Váha pro UVC (minimální vliv)
+
+    float uv_index = (k1 * uva) + (k2 * uvb) + (k3 * uvc);
+    return uv_index;
+}
+
+void drawUVScale(M5Canvas &canvas, float uvIndex)
+{
+    // Definice pozice a velikosti stupnice
+    const int x = 10;
+    const int y = 18;
+    const int width = 220;
+    const int height = 10;
+
+    // Prahové hodnoty (vzhledem k citlivosti při Stargardtově chorobě)
+    const float safeThreshold = 2.0;    // Pod touto hodnotou je riziko minimální
+    const float cautionThreshold = 3.0; // Meziprodukt - doporučená ochrana
+    const float maxThreshold = 6.0;     // Maximální hodnota stupnice
+
+    // Nakreslíme obrys stupnice
+    canvas.drawRect(x, y, width, height, WHITE);
+
+    // Omezíme aktuální UV index pro výpočet vyplnění (aby nepřekročil maxThreshold)
+    float displayValue = (uvIndex > maxThreshold) ? maxThreshold : uvIndex;
+
+    // Vypočítáme šířku vyplněné části stupnice
+    int fillWidth = (int)((displayValue / maxThreshold) * width);
+
+    // Vybereme barvu podle hodnoty UV indexu:
+    // - Pod safeThreshold = zelená (bez nutnosti ochrany)
+    // - Mezi safeThreshold a cautionThreshold = žlutá (varování)
+    // - Nad cautionThreshold = červená (vysoké riziko)
+
+    uint16_t fillColor;
+    if (uvIndex < safeThreshold)
+    {
+        fillColor = GREEN;
+    }
+    else if (uvIndex < cautionThreshold)
+    {
+        fillColor = YELLOW;
+    }
+    else
+    {
+        fillColor = RED;
+    }
+
+    // Vyplníme část stupnice
+    canvas.fillRect(x+1, y+1, fillWidth-2, height-2, fillColor);
+
+    // Vykreslíme text s aktuálním UV indexem
+    canvas.setTextSize(0.5);
+    canvas.setCursor(x + 100, y + height + 7);
+    canvas.printf("UV index: %.1f", uvIndex);
+
+    // Přidáme textovou informaci o nutnosti ochrany
+    canvas.setCursor(x, y + height + 7);
+    if (uvIndex >= safeThreshold)
+    {
+        canvas.print("vezmi Bryle");
+    }
+    else
+    {
+        canvas.print("Bez ochrany");
+    }
+}
+
 void loop()
 {
     StickCP2.update(); // Update button states
@@ -221,31 +294,42 @@ void loop()
         if (uvc > maxuvc)
             maxuvc = uvc;
 
-        canvas.setTextSize(1);
-        canvas.setCursor(10, 35);
-        canvas.printf("UV-I: %.0f\n", uv_index);
+        float uvIndex = calculateUVIndex(uva, uvb, uvc) / 25;
+
+        ESP_LOGI(TAG, "uvIndex: %d", uvIndex);
+
+        uint8_t y = 75;
+        uint8_t line = 16;
+
+        // canvas.setTextSize(1);
+        // canvas.setCursor(10, 35);
+        // canvas.printf("UV-I: %.0f\n", uv_index);
+        // canvas.setCursor(100, 25);
+        // canvas.printf("UV-T: %.0f\n", uvi_total);
 
         canvas.setTextSize(0.7);
-        canvas.setCursor(10, 65);
+        canvas.setCursor(10, y);
         canvas.printf("UV-A: %.0f\n", uva);
-        canvas.setCursor(10, 84);
+        canvas.setCursor(10, y + line);
         canvas.printf("UV-B: %.0f\n", uvb);
-        canvas.setCursor(10, 102);
+        canvas.setCursor(10, y + 2 * line);
         canvas.printf("UV-C: %.0f\n", uvc);
-        canvas.setCursor(10, 119);
+        canvas.setCursor(10, y + 3 * line);
         canvas.printf("Temp: %.1f C", myUVSensor.getTemp());
 
-        canvas.setCursor(140, 45);
+        canvas.setCursor(140, y - line);
         canvas.print("Max:");
-        canvas.setCursor(140, 65);
-        canvas.printf("%.0", maxuva);
-        canvas.setCursor(140, 84);
-        canvas.printf("%.0", maxuvb);
-        canvas.setCursor(140, 102);
-        canvas.printf("%.0", maxuvc);
+        canvas.setCursor(140, y);
+        canvas.printf("%.0f", maxuva);
+        canvas.setCursor(140, y + line);
+        canvas.printf("%.0f", maxuvb);
+        canvas.setCursor(140, y + 2 * line);
+        canvas.printf("%.0f", maxuvc);
+
+        drawUVScale(canvas, uvIndex);
 
         canvas.pushSprite(0, 0);
     }
 
-    delay(1000);
+    delay(500);
 }
