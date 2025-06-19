@@ -62,7 +62,7 @@ void setup()
     delay(2500);
     Serial.println("M5StickCPlus2 initialized");
 
-    StickCP2.Display.setBrightness(25);
+    StickCP2.Display.setBrightness(100);
     StickCP2.Display.setRotation(1);
     canvas.setTextColor(WHITE, BLACK);
     canvas.setTextDatum(middle_center);
@@ -86,7 +86,7 @@ void setup()
             ;
     }
 
-    if (kSTkErrOk != myUVSensor.setBreakTime(250))
+    if (ksfTkErrOk != myUVSensor.setBreakTime(112))
     {
         Serial.println("Sensor did not set break time properly.");
         Serial.println("Halting...");
@@ -106,7 +106,7 @@ void setup()
     Serial.println("Set mode to continuous. Starting measurement...");
 
     // Begin measurement.
-    if (kSTkErrOk != myUVSensor.setStartState(true))
+    if (ksfTkErrOk != myUVSensor.setStartState(true))
         Serial.println("Error starting reading!");
 
     xTaskCreate(
@@ -217,7 +217,7 @@ void drawUVScale(M5Canvas &canvas, float uvIndex)
     }
 
     // Vyplníme část stupnice
-    canvas.fillRect(x+1, y+1, fillWidth-2, height-2, fillColor);
+    canvas.fillRect(x + 1, y + 1, fillWidth - 2, height - 2, fillColor);
 
     // Vykreslíme text s aktuálním UV indexem
     canvas.setTextSize(0.5);
@@ -265,6 +265,7 @@ void loop()
 
     if (!displayPaused)
     {
+
         canvas.fillScreen(BLACK);
         canvas.setTextSize(0.5);
         // canvas.fillRect(0, 0, 240, 135, BLACK);
@@ -276,8 +277,10 @@ void loop()
         canvas.printf("%dmV\n", StickCP2.Power.getBatteryVoltage());
         // canvas.setTextSize(1);
 
-        if (kSTkErrOk != myUVSensor.readAll())
+        if (ksfTkErrOk != myUVSensor.readAllUV())
+        {
             Serial.println("Error reading UV.");
+        }
 
         float uva = myUVSensor.getUVA();
         float uvb = myUVSensor.getUVB();
