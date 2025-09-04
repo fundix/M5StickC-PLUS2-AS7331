@@ -28,27 +28,31 @@ float maxuvc = 0;
 
 void buttonTask(void *pvParameters);
 
-// Function to convert voltage to percentage
-int voltageToPercentage(int voltage)
+// Function to convert voltage (in mV) to percentage
+int voltageToPercentage(int voltage_mV)
 {
-    // Assuming 3.7V is 0% and 4.2V is 100%
-    int percentage = map(voltage, 3700, 4200, 0, 100);
-    return constrain(percentage, 0, 100);
+    // Map 3700 mV -> 0% and 4200 mV -> 100%
+    float pct = ((float)voltage_mV - 3700.0f) / (4200.0f - 3700.0f) * 100.0f;
+    if (pct < 0.0f)
+        pct = 0.0f;
+    if (pct > 100.0f)
+        pct = 100.0f;
+    return (int)(pct + 0.5f); // round to nearest int
 }
 
 int getStableBatteryPercentage()
 {
     const int numReadings = 10;
-    int totalVoltage = 0;
+    int total_mV = 0;
 
     for (int i = 0; i < numReadings; i++)
     {
-        totalVoltage += StickCP2.Power.getBatteryVoltage();
-        delay(10); // Small delay between readings
+        total_mV += (int)StickCP2.Power.getBatteryVoltage(); // mV per M5Unified
+        delay(10);
     }
 
-    int averageVoltage = totalVoltage / numReadings;
-    return voltageToPercentage(averageVoltage);
+    int average_mV = total_mV / numReadings;
+    return voltageToPercentage(average_mV);
 }
 
 bool displayPaused = false;
@@ -56,6 +60,7 @@ bool displayPaused = false;
 void setup()
 {
     auto cfg = M5.config();
+    // cfg.board = board_M5StickCPlus2;
     StickCP2.begin(cfg);
 
     Serial.begin(115200);
@@ -274,8 +279,9 @@ void loop()
         canvas.printf("%d%%\n", percentage);
         canvas.setCursor(11, 10);
         canvas.setTextSize(0.5);
-        canvas.printf("%dmV\n", StickCP2.Power.getBatteryVoltage());
-        // canvas.setTextSize(1);
+        int vbat_mV = StickCP2.Power.getBatteryVoltage(); // mV
+        canvas.printf("%.2f V\n", vbat_mV / 1000.0f);
+        // canvas.printf("%d mV\n", vbat_mV); // uncomment to see raw
 
         if (ksfTkErrOk != myUVSensor.readAllUV())
         {
@@ -299,7 +305,7 @@ void loop()
 
         float uvIndex = calculateUVIndex(uva, uvb, uvc) / 25;
 
-        ESP_LOGI(TAG, "uvIndex: %d", uvIndex);
+        ESP_LOGI(TAG, "uvIndex: %.2f", uvIndex);
 
         uint8_t y = 75;
         uint8_t line = 16;
